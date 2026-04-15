@@ -1,15 +1,15 @@
-# Jeepetones
-## Ainara Yu Elio San Martín y Rui Bartolomé Segura
-Robot siguelineas con comunicación IoT a través de MQTT.
+# mqtt-linefollower-arduino
+## Ainara Yu Elio San Martín and Rui Bartolomé Segura
+Line-following robot with IoT communication through MQTT.
 
-## 1. Organización del código en la Arduino
-El arduino se encarga de seguir la linea, comprobar la distancia a objetos y de generar los mensajes que luego se enviarán por comunicación en serie a la placa ESP32 para que esta los envíe al servidor mqtt. <br>
-Para esto disponemos de tres tareas controladas por RTOS de arduino, estas son:
+## 1. Code organization on the Arduino
+The Arduino is in charge of following the line, checking the distance to objects and generating the messages that will then be sent through serial communication to the ESP32 board so that it sends them to the MQTT server. <br>
+For this we have three tasks controlled by Arduino's RTOS, these are:
 
-### Tarea Ultrasonido
-Tarea con nivel 2 de prioridad y un ratio de 200 ms.<br>
-Se encarga de medir la distancia hasta un objeto y detectar cuando el robot se acerca más de lo permitido a él. La distancia incluye un pequeño margen para compensar posibles retrasos en la lectura, la prioridad de otras tareas, el tiempo de frenado del robot y la inercia causada por su velocidad antes de que se ejecute la orden de detener los motores.<br><br>
-Además del frenado básico, se incluye un margen de seguridad adicional. Este margen permite que, cuando el robot se acerque al obstáculo pero aún no haya alcanzado el límite establecido, reduzca la velocidad. De esta manera, el frenado completo se realiza de manera más eficiente y segura.
+### Ultrasound Task
+Task with priority level 2 and a rate of 200 ms.<br>
+It is in charge of measuring the distance to an object and detecting when the robot gets closer than allowed to it. The distance includes a small margin to compensate for possible delays in reading, the priority of other tasks, the braking time of the robot and the inertia caused by its speed before the order to stop the motors is executed.<br><br>
+In addition to basic braking, an additional safety margin is included. This margin allows that, when the robot approaches the obstacle but has not yet reached the established limit, it reduces the speed. This way, the complete braking is carried out in a more efficient and safe manner.
 ```c
 // Variables de la distancia
 #define DIST_STOP 10 // With a bit of gap because the intertia of movement
@@ -23,10 +23,10 @@ if (dist <= (DIST_SLOW + DIST_STOP) && dist > 0.1 ) {
 }
 ```
 
-### Tarea Infrarojos y PD
-Tarea con nivel de prioridad 3 y un ratio de 50 ms.<br>
-Tarea dedicada a la detección de los infrarrojos y a la regulación de la velocidad por un PD. Está tarea distingue dos casos, el primero si ningún sensor detecta línea y el otro si alguno de los sensores detecta.
-Si ningún sensor detecta línea el robot girará hacia el lado del último sensor que haya detectado la línea. 
+### Infrared and PD Task
+Task with priority level 3 and a rate of 50 ms.<br>
+Task dedicated to the detection of the infrareds and to the speed regulation by a PD. This task distinguishes two cases, the first if no sensor detects line and the other if any of the sensors detects.
+If no sensor detects line the robot will turn towards the side of the last sensor that detected the line.
 ```c
 if (left <= 600 && middle <= 600 && right <= 600) {
   /* Find line protocol, if last seen in left sensor, turn left and viceversa */
@@ -40,7 +40,7 @@ if (left <= 600 && middle <= 600 && right <= 600) {
   }
 }
 ```
-Si alguno de los sensores lee que hay línea se calculará la velocidad de los mototres con un PD.
+If any of the sensors reads that there is line, the speed of the motors will be calculated with a PD.
 ```c
 // PD logic
 error = right - left;
@@ -56,29 +56,30 @@ lastError = error; // Save last error to compare after
 int speedLeft = BASE_SPEED + pid_output;
 int speedRight = BASE_SPEED - pid_output;
 ```
-### Tarea que envía los PINGs
-Tarea con nivel de prioridad 1 y un ratio de 4000ms.<br>
-Enviará los pings requeridos cada 4 segundos.
 
-## 2. Organización del código en la ESP32
-Tiene como función recibir la información que le mande la placa Arduino a través del puerto serie y reenviarla al broker a usando MQTT.<br>
+### Task that sends the PINGs
+Task with priority level 1 and a rate of 4000ms.<br>
+It will send the required pings every 4 seconds.
+
+## 2. Code organization on the ESP32
+Its function is to receive the information that the Arduino board sends through the serial port and forward it to the broker using MQTT.<br>
 
 ### Setup
-Al tener dos puertos series el que se destinó a la comunicación fue el número 2.
+Having two serial ports, the one designated for communication was number 2.
 ```c
 void setup() {
   Serial.begin(115200);
   Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
 ```
-El resto del setup es la conexión wifi y MQTT una vez ha conseguido enlazarse con todo envía un mensaje por el puerto serie al Arduino avisando de que ya está todo listo para empezar.
+The rest of the setup is the wifi and MQTT connection, once it has managed to link with everything it sends a message through the serial port to the Arduino notifying that everything is ready to start.
 ```c
   Serial.println("MQTT connected");
   Serial2.print("r"); // Advise the arduino everything is ready
 } // fin setup
 ```
 
-### Parseo de mensajes
-Usamos como estándar para todos los mensajes un comienzo con "{" y una terminación "}". Todos los mensajes van abreviados en 2 letras y de ser necesaria más información va acto seguido después de las 2 letras.
+### Message parsing
+We use as standard for all messages a beginning with "{" and an ending "}". All messages are abbreviated in 2 letters and if more information is necessary it goes right after the 2 letters.
 ```c
 // Ejemplo de cómo se parsean los mensajes del ping
 else if (rcv_msg[1] == 'p' && rcv_msg[2] == 'm') { //ping_message
@@ -93,21 +94,21 @@ long ping_time = get_time_diff(start_time, millis());
 String ping_message = "{pm" + String(ping_time) + "}";
 Serial.print(ping_message); // Send ping message every 4s with low priority
 ```
-Tabla con las abreviaturas y su función:
+Table with the abbreviations and their function:
 
-| Código | Descripción de la función |
-|--------|--------------------------|
-| ll     | lost_line()              |
-| vl     | visible_line(value)      |
-| el     | end_lap(value)           |
-| od     | obst_det(dist)           |
-| ls     | line_search()            |
-| ss     | stop_search()            |
-| lf     | line_found()             |
-| pm     | ping_message(time)       |
-| sl     | start_lap()              |
+| Code | Description of the function |
+|------|------------------------------|
+| ll   | lost_line()                  |
+| vl   | visible_line(value)          |
+| el   | end_lap(value)               |
+| od   | obst_det(dist)               |
+| ls   | line_search()                |
+| ss   | stop_search()                |
+| lf   | line_found()                 |
+| pm   | ping_message(time)           |
+| sl   | start_lap()                  |
 
-Para enviar el mensaje se convertía a formato json.
+To send the message it was converted to json format.
 ```c
 void lost_line() {
   StaticJsonDocument<200> doc;
@@ -122,7 +123,5 @@ void lost_line() {
 }
 ```
 
-## 3. Vídeo
-[![Ver video](https://drive.google.com/file/d/1xAjtnyFRYlQitorrwMDDlR-E5NOdGq3v/view?usp=sharing)](https://drive.google.com/file/d/1uTETSnpztl95fZv3-GyCv4zzPdv2T2iK/view?usp=sharing)
-
-
+## 3. Video
+[![Watch video](https://drive.google.com/file/d/1xAjtnyFRYlQitorrwMDDlR-E5NOdGq3v/view?usp=sharing)](https://drive.google.com/file/d/1uTETSnpztl95fZv3-GyCv4zzPdv2T2iK/view?usp=sharing)
