@@ -2,6 +2,9 @@
 ## Ainara Yu Elio San Martín and Rui Bartolomé Segura
 Line-following robot with IoT communication through MQTT.
 
+## Video
+[![Watch video](https://drive.google.com/file/d/1xAjtnyFRYlQitorrwMDDlR-E5NOdGq3v/view?usp=sharing)](https://drive.google.com/file/d/1uTETSnpztl95fZv3-GyCv4zzPdv2T2iK/view?usp=sharing)
+
 ## 1. Code organization on the Arduino
 The Arduino is in charge of following the line, checking the distance to objects and generating the messages that will then be sent through serial communication to the ESP32 board so that it sends them to the MQTT server. <br>
 For this we have three tasks controlled by Arduino's RTOS, these are:
@@ -122,6 +125,3 @@ void lost_line() {
   mqttClient.endMessage();
 }
 ```
-
-## 3. Video
-[![Watch video](https://drive.google.com/file/d/1xAjtnyFRYlQitorrwMDDlR-E5NOdGq3v/view?usp=sharing)](https://drive.google.com/file/d/1uTETSnpztl95fZv3-GyCv4zzPdv2T2iK/view?usp=sharing)
